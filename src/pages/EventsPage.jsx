@@ -4,15 +4,20 @@ import EventCard from '../components/EventCard'
 import Toast from '../components/Toast'
 import api from '../services/api'
 
-function getErrorMessage(error) {
-  return error.response?.data?.detail || 'Unable to delete event.'
+function getErrorMessage(error, fallbackMessage) {
+  return error.response?.data?.detail || fallbackMessage
 }
 
 function EventsPage() {
   const [events, setEvents] = useState([])
+  const [rolesByEventId, setRolesByEventId] = useState({})
+  const [volunteers, setVolunteers] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [actionEventId, setActionEventId] = useState('')
   const [deleteEventId, setDeleteEventId] = useState('')
+  const [roleEventId, setRoleEventId] = useState('')
+  const [assigningRoleId, setAssigningRoleId] = useState('')
+  const [removingAssignmentId, setRemovingAssignmentId] = useState('')
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
   const [toast, setToast] = useState(null)
@@ -26,13 +31,41 @@ function EventsPage() {
     }
 
     setEvents(response.data)
+    return response.data
+  }, [])
+
+  const fetchEventRoles = useCallback(async (eventId) => {
+    const response = await api.get(`/events/${eventId}/roles`)
+
+    if (!Array.isArray(response.data)) {
+      throw new Error('Expected event roles to return an array.')
+    }
+
+    setRolesByEventId((currentRolesByEventId) => ({
+      ...currentRolesByEventId,
+      [eventId]: response.data,
+    }))
+  }, [])
+
+  const fetchVolunteers = useCallback(async () => {
+    const response = await api.get('/volunteers')
+
+    if (!Array.isArray(response.data)) {
+      throw new Error('Expected /volunteers to return an array.')
+    }
+
+    setVolunteers(response.data)
   }, [])
 
   useEffect(() => {
     async function loadEvents() {
       try {
         setError('')
-        await fetchEvents()
+        const nextEvents = await fetchEvents()
+        await Promise.all([
+          fetchVolunteers(),
+          ...nextEvents.map((event) => fetchEventRoles(event.id)),
+        ])
       } catch (error) {
         console.error('Failed to fetch events:', error)
         setError('Unable to load events.')
@@ -42,7 +75,7 @@ function EventsPage() {
     }
 
     loadEvents()
-  }, [fetchEvents])
+  }, [fetchEventRoles, fetchEvents, fetchVolunteers])
 
   async function handleStatusAction(event) {
     const actionByStatus = {
@@ -83,9 +116,60 @@ function EventsPage() {
       setToast({ type: 'success', message: 'Event deleted successfully' })
     } catch (error) {
       console.error('Failed to delete event:', error)
-      setToast({ type: 'error', message: getErrorMessage(error) })
+      setToast({ type: 'error', message: getErrorMessage(error, 'Unable to delete event.') })
     } finally {
       setDeleteEventId('')
+    }
+  }
+
+  async function handleCreateRole(event, roleData) {
+    try {
+      setRoleEventId(event.id)
+      setToast(null)
+      await api.post(`/events/${event.id}/roles`, roleData)
+      await fetchEventRoles(event.id)
+      setToast({ type: 'success', message: 'Role created successfully' })
+      return true
+    } catch (error) {
+      console.error('Failed to create role:', error)
+      setToast({ type: 'error', message: getErrorMessage(error, 'Unable to create role.') })
+      return false
+    } finally {
+      setRoleEventId('')
+    }
+  }
+
+  async function handleAssignVolunteer(event, roleId, volunteerId) {
+    try {
+      setAssigningRoleId(roleId)
+      setToast(null)
+      await api.patch(`/roles/${roleId}/assign/${volunteerId}`)
+      await fetchEventRoles(event.id)
+      setToast({ type: 'success', message: 'Volunteer assigned successfully' })
+      return true
+    } catch (error) {
+      console.error('Failed to assign volunteer:', error)
+      setToast({ type: 'error', message: getErrorMessage(error, 'Unable to assign volunteer.') })
+      return false
+    } finally {
+      setAssigningRoleId('')
+    }
+  }
+
+  async function handleRemoveVolunteer(event, roleId, volunteerId) {
+    try {
+      setRemovingAssignmentId(`${roleId}:${volunteerId}`)
+      setToast(null)
+      await api.delete(`/roles/${roleId}/assign/${volunteerId}`)
+      await fetchEventRoles(event.id)
+      setToast({ type: 'success', message: 'Volunteer removed successfully' })
+      return true
+    } catch (error) {
+      console.error('Failed to remove volunteer:', error)
+      setToast({ type: 'error', message: getErrorMessage(error, 'Unable to remove volunteer.') })
+      return false
+    } finally {
+      setRemovingAssignmentId('')
     }
   }
 
@@ -120,9 +204,17 @@ function EventsPage() {
                 key={event.id}
                 event={event}
                 isDeleting={deleteEventId === event.id}
+                isSavingRole={roleEventId === event.id}
+                assigningRoleId={assigningRoleId}
+                removingAssignmentId={removingAssignmentId}
                 isUpdating={actionEventId === event.id}
                 onDeleteEvent={handleDeleteEvent}
+                onCreateRole={handleCreateRole}
+                onAssignVolunteer={handleAssignVolunteer}
+                onRemoveVolunteer={handleRemoveVolunteer}
                 onStatusAction={handleStatusAction}
+                roles={rolesByEventId[event.id] || []}
+                volunteers={volunteers}
               />
             ))
           ) : (

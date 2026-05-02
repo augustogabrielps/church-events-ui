@@ -132,6 +132,104 @@ button.button-danger {
   margin-top: 20px;
 }
 
+.event-card__volunteers {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.event-card__volunteers h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 1rem;
+}
+
+.role-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.role-list > li {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f9fafb;
+}
+
+.role-list__details {
+  display: grid;
+  gap: 6px;
+}
+
+.role-list .role-list__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.role-list span,
+.role-list small {
+  color: #6b7280;
+}
+
+.assigned-volunteers {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assigned-volunteers li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.assigned-volunteers button {
+  min-height: 32px;
+  padding: 6px 10px;
+}
+
+.role-list select {
+  min-height: 40px;
+  min-width: 180px;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #111827;
+  font: inherit;
+}
+
+.compact-form {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto;
+  gap: 8px;
+}
+
+.compact-form input,
+.compact-form select {
+  min-height: 40px;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #111827;
+  font: inherit;
+}
+
 .status-message {
   color: #4b5563;
 }
@@ -192,6 +290,20 @@ button.button-danger {
   }
 
   .event-card__actions {
+    justify-content: stretch;
+  }
+
+  .role-list > li,
+  .compact-form {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .role-list select {
+    width: 100%;
+  }
+
+  .role-list .role-list__actions {
     justify-content: stretch;
   }
 
