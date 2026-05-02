@@ -55,6 +55,12 @@ button.button-secondary,
   color: #111827;
 }
 
+button.button-danger {
+  border-color: #b91c1c;
+  background: #ffffff;
+  color: #b91c1c;
+}
+
 .event-form {
   display: grid;
   max-width: 640px;
@@ -118,12 +124,57 @@ button.button-secondary,
   font-size: 0.95rem;
 }
 
+.event-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
 .status-message {
   color: #4b5563;
 }
 
 .status-message--error {
   color: #b91c1c;
+}
+
+.toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 10;
+  display: flex;
+  max-width: min(360px, calc(100% - 48px));
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: #f0fdf4;
+  color: #166534;
+  box-shadow: 0 16px 32px rgb(15 23 42 / 0.14);
+  font-weight: 700;
+}
+
+.toast--error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.toast__close {
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 @media (max-width: 640px) {
@@ -138,5 +189,16 @@ button.button-secondary,
 
   .event-card__header {
     display: block;
+  }
+
+  .event-card__actions {
+    justify-content: stretch;
+  }
+
+  .toast {
+    top: 16px;
+    right: 16px;
+    left: 16px;
+    max-width: none;
   }
 }
