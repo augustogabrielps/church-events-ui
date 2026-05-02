@@ -1,0 +1,142 @@
+.events-page {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 56px 0;
+}
+
+.events-page__intro {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+
+.eyebrow {
+  margin-bottom: 8px;
+  color: #2563eb;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.events-list {
+  display: grid;
+  gap: 16px;
+}
+
+button,
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #111827;
+  border-radius: 6px;
+  background: #111827;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+button.button-secondary,
+.button-secondary {
+  border-color: #d1d5db;
+  background: #ffffff;
+  color: #111827;
+}
+
+.event-form {
+  display: grid;
+  max-width: 640px;
+  gap: 20px;
+}
+
+.event-form label {
+  display: grid;
+  gap: 8px;
+  color: #374151;
+  font-weight: 700;
+}
+
+.event-form input,
+.event-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: #111827;
+  font: inherit;
+}
+
+.event-form textarea {
+  resize: vertical;
+}
+
+.event-form__actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.event-card {
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.event-card__header {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.event-card__status {
+  color: #166534;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.event-card time {
+  display: block;
+  margin-top: 16px;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.status-message {
+  color: #4b5563;
+}
+
+.status-message--error {
+  color: #b91c1c;
+}
+
+@media (max-width: 640px) {
+  .events-page {
+    padding: 32px 0;
+  }
+
+  .events-page__intro,
+  .event-form__actions {
+    display: grid;
+  }
+
+  .event-card__header {
+    display: block;
+  }
+}
