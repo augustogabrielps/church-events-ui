@@ -1,228 +1,310 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import EventCard from '../components/EventCard'
 import Toast from '../components/Toast'
 import api from '../services/api'
+import { EVENT_STATUSES, formatDateTime, getErrorMessage } from '../utils/backend'
 
-function getErrorMessage(error, fallbackMessage) {
-  return error.response?.data?.detail || fallbackMessage
+const emptyEventForm = {
+  title: '',
+  description: '',
+  location: '',
+  status: 'DRAFT',
 }
 
 function EventsPage() {
   const [events, setEvents] = useState([])
-  const [rolesByEventId, setRolesByEventId] = useState({})
-  const [volunteers, setVolunteers] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [actionEventId, setActionEventId] = useState('')
-  const [deleteEventId, setDeleteEventId] = useState('')
-  const [roleEventId, setRoleEventId] = useState('')
-  const [assigningRoleId, setAssigningRoleId] = useState('')
-  const [removingAssignmentId, setRemovingAssignmentId] = useState('')
+  const [form, setForm] = useState(emptyEventForm)
+  const [editingId, setEditingId] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [busyId, setBusyId] = useState('')
   const [error, setError] = useState('')
-  const [actionError, setActionError] = useState('')
   const [toast, setToast] = useState(null)
 
-  const fetchEvents = useCallback(async () => {
+  const loadEvents = useCallback(async () => {
     const response = await api.get('/events')
-    console.log('Events API response:', response.data)
 
     if (!Array.isArray(response.data)) {
       throw new Error('Expected /events to return an array.')
     }
 
     setEvents(response.data)
-    return response.data
-  }, [])
-
-  const fetchEventRoles = useCallback(async (eventId) => {
-    const response = await api.get(`/events/${eventId}/roles`)
-
-    if (!Array.isArray(response.data)) {
-      throw new Error('Expected event roles to return an array.')
-    }
-
-    setRolesByEventId((currentRolesByEventId) => ({
-      ...currentRolesByEventId,
-      [eventId]: response.data,
-    }))
-  }, [])
-
-  const fetchVolunteers = useCallback(async () => {
-    const response = await api.get('/volunteers')
-
-    if (!Array.isArray(response.data)) {
-      throw new Error('Expected /volunteers to return an array.')
-    }
-
-    setVolunteers(response.data)
   }, [])
 
   useEffect(() => {
-    async function loadEvents() {
+    async function load() {
       try {
         setError('')
-        const nextEvents = await fetchEvents()
-        await Promise.all([
-          fetchVolunteers(),
-          ...nextEvents.map((event) => fetchEventRoles(event.id)),
-        ])
+        await loadEvents()
       } catch (error) {
-        console.error('Failed to fetch events:', error)
-        setError('Unable to load events.')
+        setError(getErrorMessage(error, 'Unable to load events.'))
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
-    loadEvents()
-  }, [fetchEventRoles, fetchEvents, fetchVolunteers])
+    load()
+  }, [loadEvents])
 
-  async function handleStatusAction(event) {
-    const actionByStatus = {
-      DRAFT: 'open',
-      OPEN: 'close',
-    }
-    const action = actionByStatus[event.status]
+  function updateForm(field, value) {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
 
-    if (!action) {
-      return
-    }
+  function startEdit(event) {
+    setEditingId(event.id)
+    setForm({
+      title: event.title || '',
+      description: event.description || '',
+      location: event.location || '',
+      status: event.status || 'DRAFT',
+    })
+  }
+
+  function resetForm() {
+    setEditingId('')
+    setForm(emptyEventForm)
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+    setSaving(true)
+    setToast(null)
 
     try {
-      setActionEventId(event.id)
-      setActionError('')
-      await api.patch(`/events/${event.id}/${action}`)
-      await fetchEvents()
+      if (editingId) {
+        await api.put(`/events/${editingId}`, {
+          title: form.title,
+          description: form.description,
+          location: form.location,
+        })
+        setToast({ type: 'success', message: 'Event updated.' })
+      } else {
+        await api.post('/events', form)
+        setToast({ type: 'success', message: 'Event created.' })
+      }
+
+      resetForm()
+      await loadEvents()
     } catch (error) {
-      console.error('Failed to update event status:', error)
-      setActionError('Unable to update event status.')
+      setToast({ type: 'error', message: getErrorMessage(error, 'Unable to save event.') })
     } finally {
-      setActionEventId('')
+      setSaving(false)
     }
   }
 
-  async function handleDeleteEvent(event) {
-    const shouldDelete = window.confirm(`Delete "${event.title}"?`)
+  async function handleStatus(event, action) {
+    setBusyId(event.id)
+    setToast(null)
 
-    if (!shouldDelete) {
+    try {
+      await api.patch(`/events/${event.id}/${action}`)
+      await loadEvents()
+      setToast({ type: 'success', message: 'Event status updated.' })
+    } catch (error) {
+      setToast({ type: 'error', message: getErrorMessage(error, 'Unable to update status.') })
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  async function handleDelete(event) {
+    if (!window.confirm(`Delete "${event.title}"?`)) {
       return
     }
 
+    setBusyId(event.id)
+    setToast(null)
+
     try {
-      setDeleteEventId(event.id)
-      setToast(null)
       await api.delete(`/events/${event.id}`)
-      await fetchEvents()
-      setToast({ type: 'success', message: 'Event deleted successfully' })
+      await loadEvents()
+      setToast({ type: 'success', message: 'Event deleted.' })
     } catch (error) {
-      console.error('Failed to delete event:', error)
       setToast({ type: 'error', message: getErrorMessage(error, 'Unable to delete event.') })
     } finally {
-      setDeleteEventId('')
-    }
-  }
-
-  async function handleCreateRole(event, roleData) {
-    try {
-      setRoleEventId(event.id)
-      setToast(null)
-      await api.post(`/events/${event.id}/roles`, roleData)
-      await fetchEventRoles(event.id)
-      setToast({ type: 'success', message: 'Role created successfully' })
-      return true
-    } catch (error) {
-      console.error('Failed to create role:', error)
-      setToast({ type: 'error', message: getErrorMessage(error, 'Unable to create role.') })
-      return false
-    } finally {
-      setRoleEventId('')
-    }
-  }
-
-  async function handleAssignVolunteer(event, roleId, volunteerId) {
-    try {
-      setAssigningRoleId(roleId)
-      setToast(null)
-      await api.patch(`/roles/${roleId}/assign/${volunteerId}`)
-      await fetchEventRoles(event.id)
-      setToast({ type: 'success', message: 'Volunteer assigned successfully' })
-      return true
-    } catch (error) {
-      console.error('Failed to assign volunteer:', error)
-      setToast({ type: 'error', message: getErrorMessage(error, 'Unable to assign volunteer.') })
-      return false
-    } finally {
-      setAssigningRoleId('')
-    }
-  }
-
-  async function handleRemoveVolunteer(event, roleId, volunteerId) {
-    try {
-      setRemovingAssignmentId(`${roleId}:${volunteerId}`)
-      setToast(null)
-      await api.delete(`/roles/${roleId}/assign/${volunteerId}`)
-      await fetchEventRoles(event.id)
-      setToast({ type: 'success', message: 'Volunteer removed successfully' })
-      return true
-    } catch (error) {
-      console.error('Failed to remove volunteer:', error)
-      setToast({ type: 'error', message: getErrorMessage(error, 'Unable to remove volunteer.') })
-      return false
-    } finally {
-      setRemovingAssignmentId('')
+      setBusyId('')
     }
   }
 
   return (
-    <main className="events-page">
-      <Toast
-        message={toast?.message}
-        type={toast?.type}
-        onClose={() => setToast(null)}
-      />
+    <main className="page">
+      <Toast message={toast?.message} type={toast?.type} onClose={() => setToast(null)} />
 
-      <section className="events-page__intro">
+      <section className="page-heading">
         <div>
           <p className="eyebrow">Church Events</p>
-          <h1>Upcoming events</h1>
-          <p>Stay connected with the latest gatherings and activities.</p>
+          <h1>Events</h1>
+          <p>Create and manage the event records exposed by the backend.</p>
         </div>
-        <Link className="button-link" to="/events/new">
-          Create event
-        </Link>
       </section>
 
-      {isLoading && <p className="status-message">Loading events...</p>}
-      {error && <p className="status-message status-message--error">{error}</p>}
-      {actionError && <p className="status-message status-message--error">{actionError}</p>}
+      <section className="panel">
+        <h2>{editingId ? 'Edit event' : 'Create event'}</h2>
+        <form className="grid-form" onSubmit={handleSubmit}>
+          <label>
+            Title
+            <input value={form.title} onChange={(event) => updateForm('title', event.target.value)} required />
+          </label>
+          <label>
+            Location
+            <input value={form.location} onChange={(event) => updateForm('location', event.target.value)} />
+          </label>
+          {!editingId && (
+            <label>
+              Status
+              <select value={form.status} onChange={(event) => updateForm('status', event.target.value)}>
+                {EVENT_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="grid-form__wide">
+            Description
+            <textarea
+              value={form.description}
+              onChange={(event) => updateForm('description', event.target.value)}
+              rows="3"
+            />
+          </label>
+          <div className="actions grid-form__wide">
+            <button type="submit" disabled={saving}>
+              {saving ? 'Saving...' : editingId ? 'Save changes' : 'Create event'}
+            </button>
+            {editingId && (
+              <button className="button-secondary" type="button" onClick={resetForm} disabled={saving}>
+                Cancel edit
+              </button>
+            )}
+          </div>
+        </form>
+      </section>
 
-      {!isLoading && !error && (
-        <section className="events-list" aria-label="Events list">
-          {events.length > 0 ? (
-            events.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                isDeleting={deleteEventId === event.id}
-                isSavingRole={roleEventId === event.id}
-                assigningRoleId={assigningRoleId}
-                removingAssignmentId={removingAssignmentId}
-                isUpdating={actionEventId === event.id}
-                onDeleteEvent={handleDeleteEvent}
-                onCreateRole={handleCreateRole}
-                onAssignVolunteer={handleAssignVolunteer}
-                onRemoveVolunteer={handleRemoveVolunteer}
-                onStatusAction={handleStatusAction}
-                roles={rolesByEventId[event.id] || []}
-                volunteers={volunteers}
-              />
-            ))
+      {loading && <p className="status-message">Loading events...</p>}
+      {error && <p className="status-message status-message--error">{error}</p>}
+
+      {!loading && !error && (
+        <section className="events-home">
+          <div className="panel__header">
+            <h2>All events</h2>
+          </div>
+          {events.length === 0 ? (
+            <p className="status-message">No events found.</p>
           ) : (
-            <p className="status-message">No published events found.</p>
+            <div className="event-card-grid">
+              {events.map((event) => (
+                <HomeEventCard
+                  key={event.id}
+                  event={event}
+                  isBusy={busyId === event.id}
+                  onEdit={startEdit}
+                  onClose={() => handleStatus(event, 'close')}
+                  onCancel={() => handleStatus(event, 'cancel')}
+                  onDelete={() => handleDelete(event)}
+                />
+              ))}
+            </div>
           )}
         </section>
       )}
     </main>
+  )
+}
+
+function HomeEventCard({ event, isBusy, onEdit, onClose, onCancel, onDelete }) {
+  return (
+    <article className="home-event-card">
+      <div className="home-event-card__header">
+        <span className="status-pill">{event.status}</span>
+        <EventActionMenu
+          event={event}
+          isBusy={isBusy}
+          onEdit={() => onEdit(event)}
+          onClose={onClose}
+          onCancel={onCancel}
+          onDelete={onDelete}
+        />
+      </div>
+      <div className="home-event-card__body">
+        <h3>{event.title}</h3>
+        {event.description && <p>{event.description}</p>}
+      </div>
+      <div className="home-event-card__meta">
+        <span>{event.location || 'No location'}</span>
+        <span>{formatDateTime(event.createdAt)}</span>
+      </div>
+    </article>
+  )
+}
+
+function EventActionMenu({ event, isBusy, onEdit, onClose, onCancel, onDelete }) {
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) {
+      return undefined
+    }
+
+    function handleOutsideClick(mouseEvent) {
+      if (!menuRef.current?.contains(mouseEvent.target)) {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [open])
+
+  function runAction(action) {
+    setOpen(false)
+    action()
+  }
+
+  return (
+    <div className="event-action-menu" ref={menuRef}>
+      <button
+        className="icon-button"
+        type="button"
+        aria-label={`Open actions for ${event.title}`}
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        disabled={isBusy}
+      >
+        ⋮
+      </button>
+
+      {open && (
+        <div className="event-action-menu__dropdown" role="menu">
+          <Link role="menuitem" to={`/events/${event.id}`} onClick={() => setOpen(false)}>
+            Setup
+          </Link>
+          <Link role="menuitem" to={`/events/${event.id}/sales`} onClick={() => setOpen(false)}>
+            Sales
+          </Link>
+          <Link role="menuitem" to={`/events/${event.id}/financial`} onClick={() => setOpen(false)}>
+            Financial
+          </Link>
+
+          <div className="event-action-menu__separator" />
+
+          <button type="button" role="menuitem" disabled={isBusy} onClick={() => runAction(onEdit)}>
+            Edit
+          </button>
+          <button type="button" role="menuitem" disabled={isBusy || event.status !== 'OPEN'} onClick={() => runAction(onClose)}>
+            Close
+          </button>
+          <button type="button" role="menuitem" disabled={isBusy || event.status === 'CANCELLED'} onClick={() => runAction(onCancel)}>
+            Cancel
+          </button>
+          <button className="danger-menu-item" type="button" role="menuitem" disabled={isBusy} onClick={() => runAction(onDelete)}>
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
