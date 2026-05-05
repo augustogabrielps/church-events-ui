@@ -3,10 +3,40 @@
   width: min(1180px, calc(100% - 32px));
   min-height: 56px;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 12px;
   margin: 0 auto;
   color: #4b5563;
+}
+
+.app-header__brand {
+  color: #111827;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.app-header__nav,
+.app-header__account {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.app-header__nav a {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: #4b5563;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.app-header__nav a.active,
+.app-header__nav a:hover {
+  background: #eef2ff;
+  color: #1d4ed8;
 }
 
 .notification-bell {
@@ -119,6 +149,85 @@
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.home-page {
+  display: grid;
+  gap: 24px;
+}
+
+.home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
+  gap: 28px;
+  align-items: center;
+  min-height: 360px;
+  padding: 28px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.home-hero__content {
+  display: grid;
+  gap: 18px;
+}
+
+.home-hero__content p:not(.eyebrow) {
+  max-width: 680px;
+  color: #4b5563;
+  font-size: 1.05rem;
+}
+
+.home-hero__image {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  border-radius: 8px;
+  background: #eef2ff;
+  overflow: hidden;
+}
+
+.home-hero__image img {
+  width: min(260px, 82%);
+  height: auto;
+}
+
+.home-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.home-recent-list {
+  display: grid;
+  gap: 10px;
+}
+
+.home-recent-item {
+  display: grid;
+  grid-template-columns: auto minmax(160px, 1fr) minmax(110px, 0.8fr) minmax(150px, 0.8fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #111827;
+  text-decoration: none;
+}
+
+.home-recent-item:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.home-recent-item span,
+.home-recent-item time {
+  color: #6b7280;
+}
+
+.home-recent-item .status-pill {
+  color: #374151;
 }
 
 .page-heading,
@@ -505,11 +614,24 @@ td span {
     padding: 28px 0;
   }
 
+  .app-header {
+    flex-wrap: wrap;
+    padding: 10px 0;
+  }
+
+  .app-header__account {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .page-heading,
   .panel__header,
   .grid-form,
   .inline-form,
-  .metrics {
+  .metrics,
+  .home-hero,
+  .home-metrics,
+  .home-recent-item {
     grid-template-columns: 1fr;
   }
 
@@ -521,6 +643,14 @@ td span {
 
   .summary-values {
     text-align: left;
+  }
+
+  .home-hero {
+    padding: 20px;
+  }
+
+  .home-hero__image {
+    min-height: 180px;
   }
 
   .toast {

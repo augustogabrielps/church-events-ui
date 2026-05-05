@@ -17,22 +17,20 @@ function EventDetailPage() {
   const [roleForm, setRoleForm] = useState(emptyRole)
   const [volunteerForm, setVolunteerForm] = useState(emptyVolunteer)
   const [ticketTypeForm, setTicketTypeForm] = useState(emptyTicketType)
+  const [showRoleForm, setShowRoleForm] = useState(false)
+  const [showVolunteerForm, setShowVolunteerForm] = useState(false)
+  const [showTicketTypeForm, setShowTicketTypeForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busyKey, setBusyKey] = useState('')
   const [error, setError] = useState('')
   const [toast, setToast] = useState(null)
   const loggedInUser = getLoggedInUserFromToken()
   const userRole = loggedInUser?.role
+  const canManageEventSetup = Boolean(window.localStorage.getItem('authToken'))
   const canManageVolunteers = userRole === 'ADMIN' || userRole === 'LEADER'
 
-  const loadData = useCallback(async () => {
-    const [eventsResponse, rolesResponse, volunteersResponse, ticketTypesResponse] = await Promise.all([
-      api.get('/events'),
-      api.get(`/events/${id}/roles`),
-      api.get('/volunteers'),
-      api.get(`/events/${id}/ticket-types`),
-    ])
-
+  const loadEvent = useCallback(async () => {
+    const eventsResponse = await api.get('/events')
     const foundEvent = eventsResponse.data.find((event) => event.id === id)
 
     if (!foundEvent) {
@@ -40,10 +38,26 @@ function EventDetailPage() {
     }
 
     setEventRecord(foundEvent)
-    setRoles(Array.isArray(rolesResponse.data) ? rolesResponse.data : [])
-    setVolunteers(Array.isArray(volunteersResponse.data) ? volunteersResponse.data : [])
-    setTicketTypes(Array.isArray(ticketTypesResponse.data) ? ticketTypesResponse.data : [])
   }, [id])
+
+  const loadRoles = useCallback(async () => {
+    const response = await api.get(`/events/${id}/roles`)
+    setRoles(Array.isArray(response.data) ? response.data : [])
+  }, [id])
+
+  const loadVolunteers = useCallback(async () => {
+    const response = await api.get('/volunteers')
+    setVolunteers(Array.isArray(response.data) ? response.data : [])
+  }, [])
+
+  const loadTicketTypes = useCallback(async () => {
+    const response = await api.get(`/events/${id}/ticket-types`)
+    setTicketTypes(Array.isArray(response.data) ? response.data : [])
+  }, [id])
+
+  const loadData = useCallback(async () => {
+    await Promise.all([loadEvent(), loadRoles(), loadVolunteers(), loadTicketTypes()])
+  }, [loadEvent, loadRoles, loadTicketTypes, loadVolunteers])
 
   useEffect(() => {
     async function load() {
@@ -74,13 +88,13 @@ function EventDetailPage() {
     setTicketTypeForm((current) => ({ ...current, [field]: value }))
   }
 
-  async function saveWithToast(key, action, successMessage, fallbackMessage) {
+  async function saveWithToast(key, action, successMessage, fallbackMessage, reload) {
     setBusyKey(key)
     setToast(null)
 
     try {
       await action()
-      await loadData()
+      await reload()
       setToast({ type: 'success', message: successMessage })
       return true
     } catch (error) {
@@ -98,10 +112,12 @@ function EventDetailPage() {
       () => api.post(`/events/${id}/roles`, { ...roleForm, requiredPeople: Number(roleForm.requiredPeople) }),
       'Role created.',
       'Unable to create role.',
+      loadRoles,
     )
 
     if (created) {
       setRoleForm(emptyRole)
+      setShowRoleForm(false)
     }
   }
 
@@ -112,10 +128,12 @@ function EventDetailPage() {
       () => api.post('/volunteers', volunteerForm),
       'Volunteer created.',
       'Unable to create volunteer.',
+      loadVolunteers,
     )
 
     if (created) {
       setVolunteerForm(emptyVolunteer)
+      setShowVolunteerForm(false)
     }
   }
 
@@ -132,10 +150,12 @@ function EventDetailPage() {
         }),
       'Ticket type created.',
       'Unable to create ticket type.',
+      loadTicketTypes,
     )
 
     if (created) {
       setTicketTypeForm(emptyTicketType)
+      setShowTicketTypeForm(false)
     }
   }
 
@@ -149,6 +169,7 @@ function EventDetailPage() {
       () => api.patch(`/roles/${roleId}/assign/${volunteerId}`),
       'Volunteer assigned.',
       'Unable to assign volunteer.',
+      loadRoles,
     )
   }
 
@@ -158,6 +179,7 @@ function EventDetailPage() {
       () => api.delete(`/roles/${roleId}/assign/${volunteerId}`),
       'Volunteer unassigned.',
       'Unable to unassign volunteer.',
+      loadRoles,
     )
   }
 
@@ -167,6 +189,7 @@ function EventDetailPage() {
       () => api.patch(`/roles/${roleId}/join`),
       'Joined role.',
       'Unable to join role.',
+      loadRoles,
     )
   }
 
@@ -176,6 +199,7 @@ function EventDetailPage() {
       () => api.delete(`/roles/${roleId}/leave`),
       'Left role.',
       'Unable to leave role.',
+      loadRoles,
     )
   }
 
@@ -189,7 +213,7 @@ function EventDetailPage() {
           <p>Roles, volunteers, and ticket types for this event.</p>
         </div>
         <div className="actions">
-          <Link className="button-link button-secondary" to="/">
+          <Link className="button-link button-secondary" to="/events">
             Events
           </Link>
           <Link className="button-link button-secondary" to={`/events/${id}/sales`}>
@@ -207,8 +231,16 @@ function EventDetailPage() {
       {!loading && !error && (
         <>
           <section className="panel">
-            <h2>Ticket types</h2>
-            {canManageVolunteers && (
+            <div className="panel__header">
+              <h2>Ticket types</h2>
+              {canManageEventSetup && (
+                <button className="button-secondary" type="button" onClick={() => setShowTicketTypeForm((current) => !current)}>
+                  {showTicketTypeForm ? 'Cancel' : '+ Add Ticket Type'}
+                </button>
+              )}
+            </div>
+
+            {canManageEventSetup && showTicketTypeForm && (
               <form className="grid-form" onSubmit={handleCreateTicketType}>
                 <label>
                   Name
@@ -252,60 +284,93 @@ function EventDetailPage() {
               </form>
             )}
 
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Price</th>
-                    <th>Available</th>
-                    <th>Remaining</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ticketTypes.map((ticketType) => (
-                    <tr key={ticketType.id}>
-                      <td>
-                        <strong>{ticketType.name}</strong>
-                        <span>{ticketType.description}</span>
-                      </td>
-                      <td>{formatMoney(ticketType.price)}</td>
-                      <td>{ticketType.availableQuantity}</td>
-                      <td>{ticketType.remainingQuantity}</td>
+            {ticketTypes.length === 0 ? (
+              <p className="status-message">No ticket types found.</p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Price</th>
+                      <th>Available</th>
+                      <th>Remaining</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {ticketTypes.map((ticketType) => (
+                      <tr key={ticketType.id}>
+                        <td>
+                          <strong>{ticketType.name}</strong>
+                          <span>{ticketType.description || 'No description'}</span>
+                        </td>
+                        <td>{formatMoney(ticketType.price)}</td>
+                        <td>{ticketType.availableQuantity}</td>
+                        <td>{ticketType.remainingQuantity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
 
           {canManageVolunteers && (
             <section className="panel">
-              <h2>Volunteers</h2>
-              <form className="inline-form" onSubmit={handleCreateVolunteer}>
-                <label>
-                  Name
-                  <input value={volunteerForm.name} onChange={(event) => updateVolunteer('name', event.target.value)} required />
-                </label>
-                <label>
-                  Email
-                  <input
-                    type="email"
-                    value={volunteerForm.email}
-                    onChange={(event) => updateVolunteer('email', event.target.value)}
-                    required
-                  />
-                </label>
-                <button type="submit" disabled={busyKey === 'volunteer'}>
-                  {busyKey === 'volunteer' ? 'Creating...' : 'Create volunteer'}
+              <div className="panel__header">
+                <h2>Volunteers</h2>
+                <button className="button-secondary" type="button" onClick={() => setShowVolunteerForm((current) => !current)}>
+                  {showVolunteerForm ? 'Cancel' : '+ Add Volunteer'}
                 </button>
-              </form>
+              </div>
+
+              {showVolunteerForm && (
+                <form className="inline-form" onSubmit={handleCreateVolunteer}>
+                  <label>
+                    Name
+                    <input value={volunteerForm.name} onChange={(event) => updateVolunteer('name', event.target.value)} required />
+                  </label>
+                  <label>
+                    Email
+                    <input
+                      type="email"
+                      value={volunteerForm.email}
+                      onChange={(event) => updateVolunteer('email', event.target.value)}
+                      required
+                    />
+                  </label>
+                  <button type="submit" disabled={busyKey === 'volunteer'}>
+                    {busyKey === 'volunteer' ? 'Creating...' : 'Create volunteer'}
+                  </button>
+                </form>
+              )}
+
+              {volunteers.length === 0 ? (
+                <p className="status-message">No volunteers found.</p>
+              ) : (
+                <div className="chips">
+                  {volunteers.map((volunteer) => (
+                    <span className="chip" key={volunteer.id}>
+                      {volunteer.name}
+                      <small>{volunteer.email}</small>
+                    </span>
+                  ))}
+                </div>
+              )}
             </section>
           )}
 
           <section className="panel">
-            <h2>Roles</h2>
-            {canManageVolunteers && (
+            <div className="panel__header">
+              <h2>Roles</h2>
+              {canManageEventSetup && (
+                <button className="button-secondary" type="button" onClick={() => setShowRoleForm((current) => !current)}>
+                  {showRoleForm ? 'Cancel' : '+ Add Role'}
+                </button>
+              )}
+            </div>
+
+            {canManageEventSetup && showRoleForm && (
               <form className="grid-form" onSubmit={handleCreateRole}>
                 <label>
                   Name

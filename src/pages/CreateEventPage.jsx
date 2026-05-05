@@ -25,7 +25,7 @@ function CreateEventPage() {
       })
 
       console.log('Create event API response:', response.data)
-      navigate('/')
+      navigate('/events')
     } catch (error) {
       console.error('Failed to create event:', error)
       setError(getErrorMessage(error))
@@ -67,7 +67,7 @@ function CreateEventPage() {
           <button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Creating...' : 'Create event'}
           </button>
-          <Link className="button-link button-secondary" to="/">
+          <Link className="button-link button-secondary" to="/events">
             Cancel
           </Link>
         </div>

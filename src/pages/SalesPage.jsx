@@ -27,6 +27,18 @@ const emptyPayment = {
   status: 'PENDING',
 }
 
+function isUnauthorized(error) {
+  return error.response?.status === 401
+}
+
+function getAuthErrorMessage(error, fallbackMessage) {
+  if (isUnauthorized(error)) {
+    return 'Unauthorized. Log in again on this same host and port, then retry the action.'
+  }
+
+  return getErrorMessage(error, fallbackMessage)
+}
+
 function SalesPage() {
   const { id } = useParams()
   const [eventRecord, setEventRecord] = useState(null)
@@ -40,6 +52,7 @@ function SalesPage() {
   const [loading, setLoading] = useState(true)
   const [busyKey, setBusyKey] = useState('')
   const [error, setError] = useState('')
+  const [salesError, setSalesError] = useState('')
   const [toast, setToast] = useState(null)
 
   const loggedInUser = getLoggedInUserFromToken()
@@ -63,15 +76,48 @@ function SalesPage() {
   }, [id])
 
   const loadProtectedData = useCallback(async () => {
-    const [usersResponse, salesResponse] = await Promise.all([api.get('/users'), api.get(`/events/${id}/ticket-sales`)])
-    const nextSales = Array.isArray(salesResponse.data) ? salesResponse.data : []
-    setUsers(Array.isArray(usersResponse.data) ? usersResponse.data : [])
-    setSales(nextSales)
+    setSalesError('')
+
+    try {
+      const usersResponse = await api.get('/users')
+      setUsers(Array.isArray(usersResponse.data) ? usersResponse.data : [])
+    } catch (error) {
+      if (!isUnauthorized(error)) {
+        throw error
+      }
+
+      setUsers([])
+    }
+
+    let nextSales
+
+    try {
+      const salesResponse = await api.get(`/events/${id}/ticket-sales`)
+      nextSales = Array.isArray(salesResponse.data) ? salesResponse.data : []
+      setSales(nextSales)
+    } catch (error) {
+      if (!isUnauthorized(error)) {
+        throw error
+      }
+
+      setSales([])
+      setPaymentsBySaleId({})
+      setSalesError('You are not authorized to view existing sales for this event.')
+      return
+    }
 
     const paymentPairs = await Promise.all(
       nextSales.map(async (sale) => {
-        const response = await api.get(`/ticket-sales/${sale.id}/payments`)
-        return [sale.id, Array.isArray(response.data) ? response.data : []]
+        try {
+          const response = await api.get(`/ticket-sales/${sale.id}/payments`)
+          return [sale.id, Array.isArray(response.data) ? response.data : []]
+        } catch (error) {
+          if (!isUnauthorized(error)) {
+            throw error
+          }
+
+          return [sale.id, []]
+        }
       }),
     )
 
@@ -127,7 +173,7 @@ function SalesPage() {
       setToast({ type: 'success', message: successMessage })
       return true
     } catch (error) {
-      setToast({ type: 'error', message: getErrorMessage(error, fallbackMessage) })
+      setToast({ type: 'error', message: getAuthErrorMessage(error, fallbackMessage) })
       return false
     } finally {
       setBusyKey('')
@@ -284,6 +330,7 @@ function SalesPage() {
             <p className="status-message">
               Assigned ticket numbers are created and linked internally by the backend, but no current response DTO exposes them.
             </p>
+            {salesError && <p className="status-message status-message--error">{salesError}</p>}
             {sales.length === 0 ? (
               <p className="status-message">No sales found.</p>
             ) : (

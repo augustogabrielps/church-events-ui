@@ -71,7 +71,7 @@ function EditEventPage() {
       console.log('Update event API response:', response.data)
       setToast({ type: 'success', message: 'Event updated successfully' })
       setTimeout(() => {
-        navigate('/')
+        navigate('/events')
       }, 900)
     } catch (error) {
       console.error('Failed to update event:', error)
@@ -123,7 +123,7 @@ function EditEventPage() {
             <button type="submit" disabled={isSubmitting || !eventData}>
               {isSubmitting ? 'Saving...' : 'Save changes'}
             </button>
-            <Link className="button-link button-secondary" to="/">
+            <Link className="button-link button-secondary" to="/events">
               Cancel
             </Link>
           </div>

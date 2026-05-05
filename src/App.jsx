@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { Link, Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import EventDetailPage from './pages/EventDetailPage'
 import EventsPage from './pages/EventsPage'
 import FinancialPage from './pages/FinancialPage'
+import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import SalesPage from './pages/SalesPage'
 import api from './services/api'
@@ -26,11 +27,24 @@ function ProtectedPage({ children }) {
   return (
     <>
       <header className="app-header">
-        <NotificationBell />
-        <span>{loggedUser?.email || 'Authenticated user'}</span>
-        <button className="button-secondary" type="button" onClick={handleLogout}>
-          Logout
-        </button>
+        <Link className="app-header__brand" to="/">
+          Church Events
+        </Link>
+        <nav className="app-header__nav" aria-label="Primary navigation">
+          <NavLink to="/" end>
+            Home
+          </NavLink>
+          <NavLink to="/events">
+            Events
+          </NavLink>
+        </nav>
+        <div className="app-header__account">
+          <NotificationBell />
+          <span>{loggedUser?.email || 'Authenticated user'}</span>
+          <button className="button-secondary" type="button" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
       </header>
       {children}
     </>
@@ -119,7 +133,8 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/" element={<ProtectedPage><EventsPage /></ProtectedPage>} />
+      <Route path="/" element={<ProtectedPage><HomePage /></ProtectedPage>} />
+      <Route path="/events" element={<ProtectedPage><EventsPage /></ProtectedPage>} />
       <Route path="/events/:id" element={<ProtectedPage><EventDetailPage /></ProtectedPage>} />
       <Route path="/events/:id/sales" element={<ProtectedPage><SalesPage /></ProtectedPage>} />
       <Route path="/events/:id/financial" element={<ProtectedPage><FinancialPage /></ProtectedPage>} />
